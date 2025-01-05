@@ -45,7 +45,7 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-resource "aws_spot_instance_request" "valheim" {
+resource "aws_instance" "valheim" {
   #checkov:skip=CKV_AWS_126:Detailed monitoring is an extra cost and unecessary for this implementation
   #checkov:skip=CKV_AWS_8:This is not a launch configuration
   #checkov:skip=CKV2_AWS_17:This instance will be placed in the default VPC deliberately
@@ -58,8 +58,13 @@ resource "aws_spot_instance_request" "valheim" {
   })
   iam_instance_profile           = aws_iam_instance_profile.valheim.name
   vpc_security_group_ids         = [aws_security_group.ingress.id]
-  wait_for_fulfillment           = true
-  instance_interruption_behavior = "stop"
+  instance_market_options {
+    market_type = "spot"
+    spot_options {
+      instance_interruption_behavior = "stop"
+      spot_instance_type = "persistent"
+    }
+  }
   metadata_options {
     http_endpoint = "enabled"
     http_tokens   = "required"
@@ -79,13 +84,13 @@ resource "aws_spot_instance_request" "valheim" {
 }
 
 output "instance_id" {
-  value = aws_spot_instance_request.valheim.spot_instance_id
+  value = aws_instance.valheim.id
 }
 
 resource "aws_ec2_tag" "valheim" {
   for_each = local.ec2_tags
 
-  resource_id = aws_spot_instance_request.valheim.spot_instance_id
+  resource_id = aws_instance.valheim.id
   key         = each.key
   value       = each.value
 }

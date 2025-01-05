@@ -1,6 +1,6 @@
-# valheim-on-aws
+Fork of https://github.com/wahlfeld/valheim-on-aws
 
-[![build](https://github.com/wahlfeld/valheim-on-aws/actions/workflows/build.yml/badge.svg)](https://github.com/wahlfeld/valheim-on-aws/actions/workflows/build.yml)
+# valheim-on-aws
 
 ## Why does this project exist?
 

@@ -131,3 +131,6 @@ override.tf.json
 *.lock.json
 *.test-data
 .DS_Store
+
+.env
+.venv

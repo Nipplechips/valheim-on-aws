@@ -36,7 +36,7 @@ you want to play.
    `inputs.tf` E.g.
 ```
 aws_region       = "ap-southeast-2"    // Choose a region closest to your physical location
-domain           = "fakedomain.com"    // (Optional) Used as the monitoring URL
+domain           = "fakedomain.com"    // (Optional) Route53 hosted zone domain name to host monitoring
 keybase_username = "fakeusername"      // Use Keybase to encrypt AWS user passwords
 sns_email        = "mrsmith@gmail.com" // Alert go here e.g. server started, server stopped
 world_name       = "super cheap world"

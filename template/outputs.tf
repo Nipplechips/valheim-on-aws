@@ -13,10 +13,10 @@ output "instance_id" {
   description = "The EC2 instance ID"
 }
 
-output "valheim_user_passwords" {
-  value       = module.main.valheim_user_passwords
-  description = "List of AWS users and their encrypted passwords"
-}
+# output "valheim_user_passwords" {
+#   value       = module.main.valheim_user_passwords
+#   description = "List of AWS users and their encrypted passwords"
+# }
 
 output "valheim_server_name" {
   value       = var.server_name

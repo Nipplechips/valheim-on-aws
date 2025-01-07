@@ -1,0 +1,4 @@
+aws-wsgi
+pydantic
+discord-interactions
+flask

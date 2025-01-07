@@ -23,6 +23,10 @@ variable "aws_region" {
   type = string
 }
 
+variable "aws_account_id" {
+  type = string
+}
+
 variable "domain" {
   type = string
 }
@@ -61,4 +65,8 @@ variable "unique_id" {
 
 variable "world_name" {
   type = string
+}
+
+variable "discord_app_public_key" {
+  type        = string
 }

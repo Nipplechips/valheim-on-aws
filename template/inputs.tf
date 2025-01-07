@@ -9,6 +9,11 @@ variable "aws_region" {
   description = "The AWS region to create the Valheim server"
 }
 
+variable "aws_account_id" {
+  type = string
+  description = "AWS Account ID"
+}
+
 variable "domain" {
   type        = string
   default     = ""
@@ -63,4 +68,9 @@ variable "unique_id" {
 variable "world_name" {
   type        = string
   description = "The Valheim world name"
+}
+
+variable "discord_app_public_key" {
+  type        = string
+  description = "The discord bot public key"
 }

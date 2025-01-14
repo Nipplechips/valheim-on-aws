@@ -21,7 +21,7 @@ resource "aws_cloudwatch_metric_alarm" "valheim_stopped" {
   evaluation_periods  = "3"
   metric_name         = "NetworkIn"
   period              = "300"
-  statistic           = "Average"
+  statistic           = "Maximum"
   namespace           = "AWS/EC2"
   threshold           = "50000"
   alarm_actions = [

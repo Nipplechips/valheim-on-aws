@@ -55,7 +55,7 @@ variable "server_name" {
 variable "server_password" {
   type        = string
   description = "The server password"
-  default = "itsjdojotime"
+  default = "hello123"
 }
 
 variable "sns_email" {

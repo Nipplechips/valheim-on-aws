@@ -58,8 +58,8 @@ resource "aws_lambda_function" "valheim_server_control" {
   filename         = "../lambda/layer.zip"
   function_name    = "valheim_server_control"
   role             = aws_iam_role.lambda_execution_role.arn
-  handler          = "app.handler"
-  runtime          = "python3.12"
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
   source_code_hash = filebase64sha256("../lambda/layer.zip")
   # layers = [
   #   aws_lambda_layer_version.valheim_server_control_layer.arn

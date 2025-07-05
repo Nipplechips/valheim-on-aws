@@ -18,7 +18,7 @@ variable "aws_account_id" {
 
 variable "domain" {
   type        = string
-  default     = "aroundtown.com"
+  default     = ""
   description = "Domain name used to create a static monitoring URL"
 }
 

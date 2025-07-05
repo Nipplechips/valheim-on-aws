@@ -1,0 +1,19 @@
+{
+  "name": "valheim-server-control",
+  "version": "1.0.0",
+  "description": "Discord bot Lambda for Valheim server control",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && zip -r layer.zip index.js node_modules/"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ec2": "^3.0.0",
+    "discord-interactions": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

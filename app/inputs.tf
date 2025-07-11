@@ -7,7 +7,7 @@ variable "admins" {
 variable "aws_region" {
   type        = string
   description = "The AWS region to create the Valheim server"
-  default = "eu-west-1"
+  default = "eu-west-2"
 }
 
 variable "aws_account_id" {

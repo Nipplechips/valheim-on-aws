@@ -15,6 +15,15 @@ resource "aws_security_group_rule" "valheim_ingress" {
   security_group_id = aws_security_group.ingress.id
   description       = "Allows traffic to the Valheim server"
 }
+resource "aws_security_group_rule" "all_ingress" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 9999
+  protocol          = "all"
+  cidr_blocks       = ["0.0.0.0/0"] #tfsec:ignore:aws-vpc-no-public-ingress-sgr
+  security_group_id = aws_security_group.ingress.id
+  description       = "Allows all traffic to the Valheim server"
+}
 
 resource "aws_security_group_rule" "netdata" {
   type              = "ingress"

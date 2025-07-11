@@ -2,9 +2,9 @@ terraform {
   required_version = "~> 1.0"
 
   backend "s3" {
-    bucket = "valheim-aroundtown-state-files"
+    bucket = "valheim-aroundtown-state-files-euw2"
     key    = "valheim-server/prod/terraform.tfstate"
-    region = "eu-west-1"
+    region = "eu-west-2"
     profile = "games"
   }
 

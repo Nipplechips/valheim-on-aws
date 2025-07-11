@@ -136,3 +136,4 @@ override.tf.json
 .venv
 layer
 layer.zip
+**node_modules**

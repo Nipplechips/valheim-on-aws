@@ -1,2 +1,0 @@
-@reboot sleep 300 && /home/${username}/valheim/backup_valheim.sh >> /home/${username}/valheim/backup.log 2>&1
-@hourly /home/${username}/valheim/backup_valheim.sh >> /home/${username}/valheim/backup.log 2>&1

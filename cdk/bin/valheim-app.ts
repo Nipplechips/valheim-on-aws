@@ -28,6 +28,9 @@ new ValheimStack(app, 'ValheimStack', {
     account: config.awsAccountId,
     region: config.awsRegion,
   },
+  maxSpotPrice: 0.05, 
+  useSpotInstances: true, 
+  ebsVolumeSize: 20,
   ...config
 });
 

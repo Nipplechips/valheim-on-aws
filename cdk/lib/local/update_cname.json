@@ -3,7 +3,7 @@
         {
             "Action": "UPSERT",
             "ResourceRecordSet": {
-                "Name": "${fqdn}",
+                "Name": "{{fqdn}}",
                 "Type": "CNAME",
                 "TTL": 300,
                 "ResourceRecords": [

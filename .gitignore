@@ -137,3 +137,4 @@ override.tf.json
 layer
 layer.zip
 **node_modules**
+**/dist**

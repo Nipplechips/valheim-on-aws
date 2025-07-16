@@ -1,95 +1,118 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
-import { EC2Client, StartInstancesCommand, StopInstancesCommand, DescribeInstancesCommand } from '@aws-sdk/client-ec2';
-import { verifyKeyMiddleware, InteractionType, InteractionResponseType, verifyKey } from 'discord-interactions';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { InteractionResponseType, InteractionType, verifyKey } from 'discord-interactions';
+import { AutoScalingClient, DescribeAutoScalingGroupsCommand, DescribePoliciesCommand, SetDesiredCapacityCommand } from "@aws-sdk/client-auto-scaling";
+import { DescribeInstancesCommand, EC2Client } from '@aws-sdk/client-ec2';
 
-const ec2Client = new EC2Client({});
 const publicKey = process.env.DISCORD_APP_PUBLIC_KEY!;
-const instanceId = process.env.INSTANCE_ID!;
+const asgName = process.env.ASG_NAME!;
 
-export const handler = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
-  console.log('EVENT:', JSON.stringify(event));
+const ec2 = new EC2Client({});
+const autoscalingClient = new AutoScalingClient({});
 
+export const discordHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    // Verify Discord signature
     const signature = event.headers['x-signature-ed25519'];
     const timestamp = event.headers['x-signature-timestamp'];
-    const body = event.body || '';
+    const body = event.body!;
 
-    if (!verifyKey(publicKey, signature!, timestamp!, body)) {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Invalid signature' })
-      };
+    if(!signature){
+      throw new Error('Missing signature');
+    }
+    if(!timestamp){
+      throw new Error('Missing timestamp');
     }
 
-    const requestBody = JSON.parse(body);
-    console.log('BODY:', requestBody);
+    if (!verifyKey(body, signature, timestamp, publicKey)) {
+      return { statusCode: 401, body: 'Unauthorized' };
+    }
 
-    // Handle Discord ping
-    if (requestBody.type === InteractionType.PING) {
-      console.log('Ping detected, returning type 1');
+    const interaction = JSON.parse(body);
+    console.log("interaction", interaction)
+
+    // Handle ping
+    if (interaction.type === InteractionType.PING) {
       return {
         statusCode: 200,
         body: JSON.stringify({ type: InteractionResponseType.PONG })
       };
     }
 
-    // Parse command options
-    const options = requestBody.data?.options || [];
-    if (!options.length || !options[0].value) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid JSON structure' })
-      };
+    // Handle slash commands
+    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+      const command = interaction.data.name;
+      
+      switch (command) {
+        case 'start':
+          await setASGCapacity(1);
+          return discordResponse('🚀 Starting Valheim server...');
+        
+        case 'stop':
+          await setASGCapacity(0);
+          return discordResponse('🛑 Stopping Valheim server...');
+        
+        case 'status':
+          const status = await getServerStatus();
+          return discordResponse(status);
+        
+        default:
+          return discordResponse('❌ Unknown command');
+      }
     }
 
-    const action = options[0].value;
-    let message: string;
-
-    // Perform EC2 actions
-    switch (action) {
-      case 'start':
-        await ec2Client.send(new StartInstancesCommand({ InstanceIds: [instanceId] }));
-        message = 'Instance starting';
-        break;
-      
-      case 'stop':
-        await ec2Client.send(new StopInstancesCommand({ InstanceIds: [instanceId] }));
-        message = 'Instance stopping';
-        break;
-      
-      case 'status':
-        const response = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
-        const state = response.Reservations?.[0]?.Instances?.[0]?.State?.Name || 'unknown';
-        message = `Server status: [ ${state} ]`;
-        break;
-      
-      default:
-        return {
-          statusCode: 400,
-          body: JSON.stringify({ error: "Invalid action. Use 'start', 'stop', or 'status'." })
-        };
-    }
-
-    console.log('Returning message:', message);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          tts: false,
-          content: message,
-          embeds: [],
-          allowed_mentions: { parse: [] }
-        }
-      })
-    };
-
+    return { statusCode: 400, body: 'Bad Request' };
   } catch (error) {
     console.error('Error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
-    };
+    return { statusCode: 500, body: 'Internal Server Error' };
   }
 };
+
+const setASGCapacity = async (capacity: number): Promise<void> => {
+  await autoscalingClient.send(new SetDesiredCapacityCommand({
+    AutoScalingGroupName: asgName,
+    DesiredCapacity: capacity,
+    HonorCooldown: false
+  }));
+};
+
+const getServerStatus = async (): Promise<string> => {
+  const asgData = await autoscalingClient.send(new DescribeAutoScalingGroupsCommand({
+    AutoScalingGroupNames: [asgName]
+  }));
+
+  const asg = asgData.AutoScalingGroups?.[0];
+  if (!asg) return '❌ ASG not found';
+
+  const desired = asg.DesiredCapacity || 0;
+  const running = asg.Instances?.filter(i => i.LifecycleState === 'InService').length || 0;
+
+  if (desired === 0) {
+    return '🔴 Server is stopped';
+  }
+
+  if (running === 0) {
+    return '🟡 Server is starting up...';
+  }
+
+  // Get instance details
+  const instanceId = asg.Instances?.[0]?.InstanceId;
+  if (instanceId) {
+    const ec2Data = await ec2.send(new DescribeInstancesCommand({
+      InstanceIds: [instanceId]
+    }));
+    
+    const instance = ec2Data.Reservations?.[0]?.Instances?.[0];
+    const publicIp = instance?.PublicIpAddress;
+    
+    return `🟢 Server is running${publicIp ? ` at ${publicIp}:2456` : ''}`;
+  }
+
+  return '🟢 Server is running';
+};
+
+const discordResponse = (content: string): APIGatewayProxyResult => ({
+  statusCode: 200,
+  body: JSON.stringify({
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { content }
+  })
+});

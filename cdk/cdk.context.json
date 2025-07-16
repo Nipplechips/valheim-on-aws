@@ -1,0 +1,35 @@
+{
+  "vpc-provider:account=557690593857:filter.isDefault=true:region=eu-west-2:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-09fac75e63d90dca9",
+    "vpcCidrBlock": "172.31.0.0/16",
+    "ownerAccountId": "557690593857",
+    "availabilityZones": [],
+    "subnetGroups": [
+      {
+        "name": "Public",
+        "type": "Public",
+        "subnets": [
+          {
+            "subnetId": "subnet-07d1f1da2d7a4001e",
+            "cidr": "172.31.16.0/20",
+            "availabilityZone": "eu-west-2a",
+            "routeTableId": "rtb-08cbfc550d18e81c7"
+          },
+          {
+            "subnetId": "subnet-054253631848f0fbf",
+            "cidr": "172.31.32.0/20",
+            "availabilityZone": "eu-west-2b",
+            "routeTableId": "rtb-08cbfc550d18e81c7"
+          },
+          {
+            "subnetId": "subnet-0f58ab38bcd564953",
+            "cidr": "172.31.0.0/20",
+            "availabilityZone": "eu-west-2c",
+            "routeTableId": "rtb-08cbfc550d18e81c7"
+          }
+        ]
+      }
+    ]
+  },
+  "ami:account=557690593857:filters.image-type.0=machine:filters.name.0=ubuntu/images/hvm-ssd/ubuntu-focal-20.*-amd64-server-*:filters.state.0=available:owners.0=099720109477:region=eu-west-2": "ami-0f321d890424a6390"
+}

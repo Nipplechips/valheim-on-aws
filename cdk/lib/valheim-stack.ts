@@ -5,6 +5,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as route53 from 'aws-cdk-lib/aws-route53';
@@ -18,6 +19,7 @@ import { NagSuppressions } from 'cdk-nag';
 import * as path from 'path';
 import * as fs from 'fs';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import { CfnAccount } from 'aws-cdk-lib/aws-apigateway';
 
 export interface ValheimStackProps extends cdk.StackProps {
   admins: { [key: string]: string };
@@ -259,6 +261,14 @@ export class ValheimStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
       ]
     });
+    
+    // Create a role for API Gateway to write logs to CloudWatch
+    const apiGatewayLoggingRole = new iam.Role(this, 'ApiGatewayLoggingRole', {
+      assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonAPIGatewayPushToCloudWatchLogs')
+      ]
+    });
 
 
     lambdaRole.addToPolicy(new iam.PolicyStatement({
@@ -283,7 +293,7 @@ export class ValheimStack extends cdk.Stack {
     }));
 
     const lambdaFunction = new NodejsFunction(this, 'DiscordBotFunction', {
-      entry: "../../lambda/index.ts",
+      entry: '/Users/podium/repos/valheim-on-aws/lambda/index.ts',
       handler: "discordHandler",
       runtime: lambda.Runtime.NODEJS_LATEST,
       role: lambdaRole,
@@ -298,10 +308,49 @@ export class ValheimStack extends cdk.Stack {
     topic.addSubscription(new snsSubscriptions.LambdaSubscription(lambdaFunction));
 
     // API Gateway
+    // Enable API Gateway to push logs to CloudWatch
+    const apiGatewayAccountSettings = new CfnAccount(this, 'ApiGatewayAccountSettings', {
+      cloudWatchRoleArn: apiGatewayLoggingRole.roleArn
+    });
+    
+    const logGroup = new logs.LogGroup(this, 'ValheimApiLogs', {
+      logGroupName: `/aws/apigateway/${name}-api`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    });
+    
     const httpApi = new apigateway.CfnApi(this, 'ValheimApi', {
       name: 'Valheim Server Control API',
       protocolType: 'HTTP'
     });
+    
+    // Configure API Gateway logging
+    const stage = new apigateway.CfnStage(this, 'ValheimApiStage', {
+      apiId: httpApi.ref,
+      stageName: '$default',
+      autoDeploy: true,
+      accessLogSettings: {
+        destinationArn: logGroup.logGroupArn,
+        format: JSON.stringify({
+          requestId: '$context.requestId',
+          ip: '$context.identity.sourceIp',
+          requestTime: '$context.requestTime',
+          httpMethod: '$context.httpMethod',
+          routeKey: '$context.routeKey',
+          status: '$context.status',
+          protocol: '$context.protocol',
+          responseLength: '$context.responseLength',
+          userAgent: '$context.identity.userAgent',
+          integrationError: '$context.integrationErrorMessage',
+          integrationLatency: '$context.integrationLatency',
+          integrationStatus: '$context.integrationStatus',
+          requestBody: '$input.body'
+        })
+      }
+    });
+    
+    // Ensure the stage is created after the account settings
+    stage.addDependency(apiGatewayAccountSettings);
 
     const integration = new apigateway.CfnIntegration(this, 'LambdaIntegration', {
       apiId: httpApi.ref,
@@ -352,6 +401,11 @@ export class ValheimStack extends cdk.Stack {
       value: props.serverName,
       description: 'Name of the Valheim server'
     });
+    
+    new cdk.CfnOutput(this, 'ApiLogsGroup', {
+      value: `/aws/apigateway/${name}-api`,
+      description: 'CloudWatch Log Group for API Gateway access logs'
+    });
 
 
     // Apply tags
@@ -398,6 +452,15 @@ export class ValheimStack extends cdk.Stack {
         appliesTo: ['Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole']
       }
     ]);
+    
+    // Suppress API Gateway logging role managed policy warning
+    NagSuppressions.addResourceSuppressionsByPath(this, '/ValheimStack/ApiGatewayLoggingRole/Resource', [
+      {
+        id: 'AwsSolutions-IAM4',
+        reason: 'AmazonAPIGatewayPushToCloudWatchLogs is required for API Gateway to write logs to CloudWatch',
+        appliesTo: ['Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs']
+      }
+    ]);
     NagSuppressions.addResourceSuppressionsByPath(this, '/ValheimStack/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource', [
       {
         id: 'AwsSolutions-L1',
@@ -411,6 +474,12 @@ export class ValheimStack extends cdk.Stack {
     NagSuppressions.addResourceSuppressions(route, [{
       id: "AwsSolutions-APIG4",
       reason: "This route does not require authorization until the game server is working"
+    }]);
+    
+    // Suppress log group encryption warning if needed
+    NagSuppressions.addResourceSuppressions(logGroup, [{
+      id: "AwsSolutions-L1",
+      reason: "Log group encryption is not required for this development API"
     }])
     // Suppress necessary wildcards with justification
     NagSuppressions.addResourceSuppressionsByPath(this, '/ValheimStack/ValheimInstanceRole/DefaultPolicy/Resource', [

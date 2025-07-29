@@ -20,9 +20,21 @@ bash kickstart-static64.sh --dont-wait
 useradd -m {{username}}
 su - {{username}} -c "mkdir -p /home/{{username}}/valheim"
 
+# Get instance metadata
+TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` || true
+
+PUBLIC_IP=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4) || true
+PUBLIC_DNS=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-hostname) || true
+
+# Export for use in other scripts
+export PUBLIC_IP PUBLIC_DNS
+echo $PUBLIC_IP
+echo $PUBLIC_DNS
+
 aws s3 cp s3://{{bucket}}/install_valheim.sh /home/{{username}}/valheim/install_valheim.sh
 aws s3 cp s3://{{bucket}}/bootstrap_valheim.sh /home/{{username}}/valheim/bootstrap_valheim.sh
 aws s3 cp s3://{{bucket}}/valheim.service /home/{{username}}/valheim/valheim.service
+
 
 chmod +x /home/{{username}}/valheim/install_valheim.sh
 chmod +x /home/{{username}}/valheim/bootstrap_valheim.sh
@@ -32,6 +44,8 @@ chown {{username}}:{{username}} /home/{{username}}/valheim/bootstrap_valheim.sh
 chown {{username}}:{{username}} /home/{{username}}/valheim/valheim.service
 
 cp /home/{{username}}/valheim/valheim.service /etc/systemd/system
+
+aws events put-events --region eu-west-2 --entries "[{\"Source\":\"valheim\",\"DetailType\":\"Game Server State Change\",\"Detail\":\"{\\\"dnsName\\\":\\\"$PUBLIC_DNS\\\",\\\"state\\\":\\\"provisioned\\\"}\"}]"
 
 su - {{username}} -c "bash /home/{{username}}/valheim/install_valheim.sh" 2>&1 | tee /var/log/valheim-install.log
 

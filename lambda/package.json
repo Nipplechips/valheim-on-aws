@@ -7,17 +7,21 @@
     "build": "tsc",
     "clean": "rm -rf node_modules && rm -f layer.zip && rm -f index.js",
     "install-prod": "npm install --production",
-    "package": "npm run build && npm run install-prod && zip -r layer.zip index.js node_modules/"
+    "package": "npm run build && npm run install-prod && zip -r layer.zip index.js node_modules/",
+    "start": "node app.js",
+    "register": "node dist/discord-commands/commands.js",
+    "dev": "nodemon app.js"
   },
   "dependencies": {
     "@aws-sdk/client-auto-scaling": "^3.846.0",
     "@aws-sdk/client-ec2": "^3.0.0",
+    "aws-lambda": "^1.0.7",
     "discord-interactions": "^3.4.0",
-    "aws-lambda": "^1.0.7"
+    "dotenv": "^17.2.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.9",
     "typescript": "^5.0.0"
   }
 }

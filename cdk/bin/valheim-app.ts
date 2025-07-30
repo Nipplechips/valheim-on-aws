@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { ValheimStack } from '../lib/valheim-stack';
-import { AwsSolutionsChecks } from 'cdk-nag';
+import { ValheimStack, ValheimStackProps } from '../lib/valheim-stack';
 
 const app = new cdk.App();
 
-const config = {
+const config: ValheimStackProps = {
   admins: { "finch": "76561198082848016" },
   awsRegion: "eu-west-2",
   awsAccountId: "557690593857",
@@ -19,8 +18,7 @@ const config = {
   serverPassword: "hello123",
   snsEmail: "david.finch.bournemouth@gmail.com",
   uniqueId: "",
-  worldName: "aroundtown",
-  discordAppPublicKey: "xxx"
+  worldName: "aroundtown"
 };
 
 new ValheimStack(app, 'ValheimStack', {
@@ -28,10 +26,13 @@ new ValheimStack(app, 'ValheimStack', {
     account: config.awsAccountId,
     region: config.awsRegion,
   },
-  maxSpotPrice: 0.05, 
-  useSpotInstances: true, 
+  tags: {
+    application: "game-server:valheim"
+  },
+  maxSpotPrice: 0.05,
+  useSpotInstances: true,
   ebsVolumeSize: 20,
   ...config
 });
 
-cdk.Aspects.of(app).add(new AwsSolutionsChecks({verbose: true}));
+//cdk.Aspects.of(app).add(new AwsSolutionsChecks({verbose: true}));

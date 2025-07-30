@@ -1,33 +1,51 @@
+import { Logger } from '@aws-lambda-powertools/logger';
+import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
+import { Tracer } from '@aws-lambda-powertools/tracer';
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { DiscordUtil } from "../../util";
 import { sendDiscordMessage } from "./main";
 
-const publicKey = process.env.DISCORD_APP_PUBLIC_KEY!;
-const discordAppId = process.env.DISCORD_APP_ID!;
+const logger = new Logger({ serviceName: 'discord-messaging' });
+const metrics = new Metrics({ namespace: 'Valheim/Discord', serviceName: 'discord-messaging' });
+const tracer = new Tracer({ serviceName: 'discord-messaging' });
+
 const appToken = process.env.DISCORD_APP_TOKEN!;
 const discordMessageIdParamName = process.env.DISCORD_MESSAGE_ID_PARAM!;
 
-const ssmClient = new SSMClient({});
+const ssmClient = tracer.captureAWSv3Client(new SSMClient({}));
 
-export const discordMessagingHandler = async (event: any): Promise<any> => {
+class DiscordMessagingHandler {
+    @tracer.captureLambdaHandler()
+    @logger.injectLambdaContext()
+    @metrics.logMetrics()
+    public async handler(event: any, context: unknown): Promise<any> {
+        const { state, ipAddress, dnsName } = event.detail;
+        
+        logger.info('Processing Discord message event', { state, ipAddress, dnsName });
+        metrics.addMetric('MessageEventReceived', MetricUnit.Count, 1);
 
-    const {state, ipAddress, dnsName} = event.detail;
-
-    try {
-       return await sendDiscordMessage({
-           discordClient: new DiscordUtil(appToken),
-           discordChannelId: "1397663670947020886",
-           discordMessageIdParamName,
-           serverState: state,
-           dnsName,
-           ipAddress,
-           ssmClient,
-       });
-    } catch (error) {
-        console.error(`DiscordCommandHandler`, error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: "Internal Server Error" })
+        try {
+            return await sendDiscordMessage({
+                discordClient: new DiscordUtil(appToken),
+                discordChannelId: "1397663670947020886",
+                discordMessageIdParamName,
+                serverState: state,
+                dnsName,
+                ipAddress,
+                ssmClient,
+                logger,
+                metrics
+            });
+        } catch (error) {
+            logger.error('Discord messaging handler error', { error, state });
+            metrics.addMetric('MessageHandlerError', MetricUnit.Count, 1);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ message: "Internal Server Error" })
+            }
         }
     }
 }
+
+const handlerInstance = new DiscordMessagingHandler();
+export const discordMessagingHandler = handlerInstance.handler.bind(handlerInstance);

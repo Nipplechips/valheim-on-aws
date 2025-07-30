@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import { GameServerConstruct } from './constructs/game-server-construct';
@@ -22,9 +23,6 @@ export interface ValheimStackProps extends cdk.StackProps {
   snsEmail: string;
   uniqueId?: string;
   worldName: string;
-  discordAppPublicKey?: string;
-  discordAppId?: string;
-  discordToken?: string;
   // Cost optimization options
   maxSpotPrice?: number; // Maximum spot price per hour
   useSpotInstances?: boolean; // Enable/disable spot instances
@@ -34,6 +32,17 @@ export interface ValheimStackProps extends cdk.StackProps {
 export class ValheimStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ValheimStackProps) {
     super(scope, id, props);
+
+    // Retrieve Discord secrets from Parameter Store
+    const discordAppPublicKey = ssm.StringParameter.valueFromLookup(
+      this, '/valheim/discord/app-public-key'
+    );
+    const discordAppId = ssm.StringParameter.valueFromLookup(
+      this, '/valheim/discord/app-id'
+    );
+    const discordToken = ssm.StringParameter.valueFromLookup(
+      this, '/valheim/discord/token'
+    );
 
     const username = 'vhserver';
     const name = props.purpose !== 'prod' ? `valheim-${props.purpose}${props.uniqueId || ''}` : 'valheim';
@@ -89,23 +98,20 @@ export class ValheimStack extends cdk.Stack {
 
     const serverObservation = new GameServerObservationConstruct(this, "ValheimServerObservation", {
       autoScalingGroupName: gameServer.autoScalingGroup.autoScalingGroupName,
-      discordToken: `${props.discordToken}`
+      discordToken: `${discordToken}`
     });
 
-    const serverControl = new GameServerControlConstruct(this, "ValheimServerControl", {
+    new GameServerControlConstruct(this, "ValheimServerControl", {
       gameServerControl: {
         name: gameServer.autoScalingGroup.autoScalingGroupName,
         arn: gameServer.autoScalingGroup.autoScalingGroupArn
       },
       launchArgsParameter: gameServer.serverLaunchArgsParam,
       discordMessageIdParameter: serverObservation.discordMessageIdParam,
-      discordAppId: props.discordAppId,
-      discordAppPublicKey: props.discordAppPublicKey,
-      discordToken: props.discordToken
+      discordAppId,
+      discordAppPublicKey,
+      discordToken
     });
-
-
-
 
     // Apply tags
     Object.entries(tags).forEach(([key, value]) => {

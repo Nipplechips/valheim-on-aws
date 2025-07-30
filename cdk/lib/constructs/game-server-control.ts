@@ -41,7 +41,7 @@ export class GameServerControlConstruct extends Construct {
             actions: ['ec2:DescribeInstances'],
             resources: [`arn:aws:ec2:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:instance/*`]
         }));
-        
+
 
         lambdaRole.addToPolicy(new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
@@ -50,7 +50,7 @@ export class GameServerControlConstruct extends Construct {
         }));
         lambdaRole.addToPolicy(new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ['ssm:PutParameter'], 
+            actions: ['ssm:PutParameter'],
             resources: [`${props.launchArgsParameter.parameterArn}`]
         }));
 
@@ -63,6 +63,22 @@ export class GameServerControlConstruct extends Construct {
             resources: [props.gameServerControl.arn]
         }));
 
+        lambdaRole.addToPolicy(new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'xray:PutTraceSegments',
+                'xray:PutTelemetryRecords'
+            ],
+            resources: ['*']
+        }));
+
+
+        // Create a Layer with Powertools for AWS Lambda (TypeScript)
+        const powertoolsLayer = lambda.LayerVersion.fromLayerVersionArn(
+            this,
+            'PowertoolsLayer',
+            `arn:aws:lambda:${cdk.Stack.of(this).region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:32`
+        );
         const logGroupDiscordBotFunction = new logs.LogGroup(this, 'DiscordBotFunctionLogs', {
             retention: logs.RetentionDays.ONE_WEEK,
             removalPolicy: cdk.RemovalPolicy.DESTROY
@@ -71,14 +87,25 @@ export class GameServerControlConstruct extends Construct {
             entry: 'lib/src/discord-interactions/interactions/handler.ts',
             handler: "discordBotHandler",
             runtime: lambda.Runtime.NODEJS_22_X,
+            layers: [powertoolsLayer],
+            bundling: {
+                externalModules: [
+                    '@aws-lambda-powertools/*',
+                    '@aws-sdk/*',
+                ],
+            },
             architecture: lambda.Architecture.ARM_64,
             role: lambdaRole,
             logGroup: logGroupDiscordBotFunction,
+            tracing: lambda.Tracing.ACTIVE,
             environment: {
                 DISCORD_APP_PUBLIC_KEY: `${props.discordAppPublicKey}`,
                 LAUNCH_ARGS_PARAM_NAME: `${props.launchArgsParameter.parameterName}`,
                 DISCORD_MESSAGE_ID_PARAM_NAME: `${props.discordMessageIdParameter.parameterName}`,
-                ASG_NAME: props.gameServerControl.name
+                ASG_NAME: props.gameServerControl.name,
+                POWERTOOLS_SERVICE_NAME: 'discord-interactions',
+                POWERTOOLS_METRICS_NAMESPACE: 'Valheim/Discord',
+                LOG_LEVEL: 'INFO'
             }
         });
 

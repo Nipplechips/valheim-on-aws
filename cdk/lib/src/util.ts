@@ -1,6 +1,9 @@
 import { InteractionResponseType, InteractionResponseFlags, ButtonStyleTypes, MessageComponentTypes, SeparatorSpacingTypes } from 'discord-interactions';
 import 'dotenv/config';
 import axios from 'axios';
+import { Logger } from '@aws-lambda-powertools/logger';
+
+const logger = new Logger({ serviceName: 'discord-util' });
 
 export enum BotCommand {
   REQUEST = "request",
@@ -64,7 +67,7 @@ export class DiscordUtil {
     ],
     gameServerLaunchedInfo: ({ ipAddress, dnsName, state }: { ipAddress?: string, dnsName?: string, state: string }) => {
 
-      console.debug(`Sending server launch info: ${state}`, { ipAddress, dnsName, state });
+      logger.debug('Generating server launch info component', { ipAddress, dnsName, state });
       const stage = `${state}`.toLowerCase();
 
       const steps: Record<string, string> = {
@@ -200,25 +203,21 @@ export class DiscordUtil {
       }, {
         headers: this.DISCORD_HEADERS
       });
-      console.debug(`Channel message updated: ${response.data?.id}`, response.data);
+      logger.info('Discord channel message updated', { messageId: response.data?.id });
       return;
     } catch (error: any) {
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error("Axios error response:", error.response.data);
-        console.error(error.response.status);
-        console.error(error.response.headers);
+        logger.error('Discord API error response', {
+          data: error.response.data,
+          status: error.response.status,
+          headers: error.response.headers
+        });
       } else if (error.request) {
-        // The request was made but no response was received
-        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-        // http.ClientRequest in node.js
-        console.error("Axios request error:", error.request);
+        logger.error('Discord API request error', { request: error.request });
       } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Unkown error:', error.message);
+        logger.error('Unknown Discord API error', { message: error.message });
       }
-      console.info(error.config);
+      logger.debug('Request config', { config: error.config });
     }
   }
   public async sendChannelMessage({ channelId, components }: { channelId: string; components: any[]; }) {
@@ -230,26 +229,22 @@ export class DiscordUtil {
         headers: this.DISCORD_HEADERS
       });
 
-      console.debug(`Channel message sent: ${response.data?.id}`, response.data);
+      logger.info('Discord channel message sent', { messageId: response.data?.id });
       return response.data?.id;
 
     } catch (error: any) {
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error(error.response.data);
-        console.info(error.response.status);
-        console.info(error.response.headers);
+        logger.error('Discord API error response', {
+          data: error.response.data,
+          status: error.response.status,
+          headers: error.response.headers
+        });
       } else if (error.request) {
-        // The request was made but no response was received
-        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-        // http.ClientRequest in node.js
-        console.error(error.request);
+        logger.error('Discord API request error', { request: error.request });
       } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error', error.message);
+        logger.error('Discord API error', { message: error.message });
       }
-      console.info(error.config);
+      logger.debug('Request config', { config: error.config });
     }
   }
 }

@@ -10,6 +10,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as ssm from 'aws-cdk-lib/aws-ssm'
+import { LayerVersion, Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 
 export interface GameServerObservationConstructProps {
     discordToken: string;
@@ -21,6 +22,13 @@ export class GameServerObservationConstruct extends Construct {
     constructor(scope: Construct, id: string, props: GameServerObservationConstructProps) {
         super(scope, id);
 
+        // Create a Layer with Powertools for AWS Lambda (TypeScript)
+        const powertoolsLayer = LayerVersion.fromLayerVersionArn(
+            this,
+            'PowertoolsLayer',
+            `arn:aws:lambda:${cdk.Stack.of(this).region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:32`
+        );
+
         this.discordMessageIdParam = new ssm.StringParameter(this, 'DiscordMessageIdParameter', {
             description: 'Stores the Discord message id that is representing server status',
             stringValue: ' ',
@@ -30,10 +38,20 @@ export class GameServerObservationConstruct extends Construct {
             entry: 'lib/src/discord-interactions/messages/handler.ts',
             handler: "discordMessagingHandler",
             runtime: lambda.Runtime.NODEJS_22_X,
-            architecture: lambda.Architecture.ARM_64,
+            layers: [powertoolsLayer],
+            bundling: {
+                externalModules: [
+                    '@aws-lambda-powertools/*',
+                    '@aws-sdk/*',
+                ],
+            },
+            tracing: lambda.Tracing.ACTIVE,
             environment: {
                 DISCORD_APP_TOKEN: `${props.discordToken}`,
-                DISCORD_MESSAGE_ID_PARAM: this.discordMessageIdParam.parameterName
+                DISCORD_MESSAGE_ID_PARAM: this.discordMessageIdParam.parameterName,
+                POWERTOOLS_SERVICE_NAME: 'discord-messaging',
+                POWERTOOLS_METRICS_NAMESPACE: 'Valheim/Discord',
+                LOG_LEVEL: 'INFO'
             }
         });
 
@@ -48,6 +66,15 @@ export class GameServerObservationConstruct extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ['ssm:PutParameter', 'ssm:GetParameter'],
             resources: [this.discordMessageIdParam.parameterArn]
+        }));
+
+        this.discordMessengerLambda.addToRolePolicy(new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: [
+                'xray:PutTraceSegments',
+                'xray:PutTelemetryRecords'
+            ],
+            resources: ['*']
         }));
 
         // SNS Topic for notifications

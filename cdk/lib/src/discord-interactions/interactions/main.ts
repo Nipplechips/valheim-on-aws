@@ -7,10 +7,11 @@ import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
 
 
 export async function handleDiscordCommand({ command, discordMessageIdParameterName, autoscalingClient, ssmClient, asgName, logger, metrics }: { command: BotCommand; discordMessageIdParameterName: string; autoscalingClient: AutoScalingClient; ssmClient: SSMClient; asgName: string; logger: Logger; metrics: Metrics; }) {
-    logger.info('Handling Discord command', { command });
-
+    logger.info(`Handling Discord command: ${command}`);
+    
     switch (command) {
         case BotCommand.REQUEST:
+            logger.info('Processing request-server command');
             metrics.addMetric('ServerRequested', MetricUnit.Count, 1);
             return DiscordUtil.componentResponse(DiscordUtil.components.REQUEST_SERVER_COMMAND_RESPONSE);
 
@@ -40,7 +41,7 @@ export async function handleDiscordCommand({ command, discordMessageIdParameterN
             }]);
 
         default:
-            logger.warn('Unknown command received', { command });
+            logger.warn(`Unknown command received: ${command}`);
             metrics.addMetric('UnknownCommand', MetricUnit.Count, 1);
             return DiscordUtil.componentResponse(DiscordUtil.components.unknownCommandResponse(command));
     }

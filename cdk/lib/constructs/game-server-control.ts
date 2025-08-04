@@ -105,7 +105,7 @@ export class GameServerControlConstruct extends Construct {
                 ASG_NAME: props.gameServerControl.name,
                 POWERTOOLS_SERVICE_NAME: 'discord-interactions',
                 POWERTOOLS_METRICS_NAMESPACE: 'Valheim/Discord',
-                LOG_LEVEL: 'INFO'
+                POWERTOOLS_LOG_LEVEL: "DEBUG"
             }
         });
 

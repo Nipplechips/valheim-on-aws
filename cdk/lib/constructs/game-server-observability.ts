@@ -17,7 +17,7 @@ export interface GameServerObservationConstructProps {
     autoScalingGroupName: string;
 }
 export class GameServerObservationConstruct extends Construct {
-    public discordMessengerLambda: NodejsFunction;
+    public readonly discordMessengerLambda: NodejsFunction;
     public discordMessageIdParam: ssm.StringParameter;
     constructor(scope: Construct, id: string, props: GameServerObservationConstructProps) {
         super(scope, id);

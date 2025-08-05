@@ -21,7 +21,7 @@ export interface GameServerControlConstructProps {
     discordMessageIdParameter: ssm.StringParameter;
 }
 export class GameServerControlConstruct extends Construct {
-    public discordInteractionLambda: NodejsFunction;
+    public readonly discordInteractionLambda: NodejsFunction;
     public discordCommandRegistrationLambda: NodejsFunction;
 
     constructor(scope: Construct, id: string, props: GameServerControlConstructProps) {

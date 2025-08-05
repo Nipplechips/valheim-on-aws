@@ -3,6 +3,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as ssm from 'aws-cdk-lib/aws-ssm'
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import { GameServerConstruct } from './constructs/game-server-construct';
@@ -98,7 +99,7 @@ export class ValheimStack extends cdk.Stack {
       discordTokenKeyParam: `${discordTokenKeyParam}`
     });
 
-    new GameServerControlConstruct(this, "ValheimServerControl", {
+    const serverControl = new GameServerControlConstruct(this, "ValheimServerControl", {
       gameServerControl: {
         name: gameServer.autoScalingGroup.autoScalingGroupName,
         arn: gameServer.autoScalingGroup.autoScalingGroupArn
@@ -107,6 +108,77 @@ export class ValheimStack extends cdk.Stack {
       discordMessageIdParameter: serverObservation.discordMessageIdParam,
       discordAppId,
       discordAppPublicKey: discordAppPublicKeyParam
+    });
+
+    // CloudWatch Dashboard
+    new cloudwatch.Dashboard(this, 'ValheimDashboard', {
+      dashboardName: `${name}-operations`,
+      widgets: [
+        [new cloudwatch.GraphWidget({
+          title: 'EC2 Instance State',
+          left: [new cloudwatch.Metric({
+            namespace: 'AWS/AutoScaling',
+            metricName: 'GroupInServiceInstances',
+            dimensionsMap: { AutoScalingGroupName: gameServer.autoScalingGroup.autoScalingGroupName },
+            statistic: 'Average'
+          })]
+        }), new cloudwatch.GraphWidget({
+          title: 'Lambda Error Rates',
+          left: [
+            serverControl.discordInteractionLambda.metricErrors({ label: 'Discord Bot Errors' }),
+            serverObservation.discordMessengerLambda.metricErrors({ label: 'Discord Messaging Errors' })
+          ]
+        })],
+        [new cloudwatch.LogQueryWidget({
+          title: 'Discord Bot Lambda Errors',
+          logGroupNames:[serverControl.discordInteractionLambda.logGroup.logGroupName],
+          queryLines: [
+            'fields @timestamp, @message',
+            'filter @message like /ERROR/',
+            'sort @timestamp desc',
+            'limit 50'
+          ],
+          width: 12
+        })],
+        [new cloudwatch.LogQueryWidget({
+          title: 'Discord Messaging Lambda Errors', 
+          logGroupNames: [serverObservation.discordMessengerLambda.logGroup.logGroupName],
+          queryLines: [
+            'fields @timestamp, @message',
+            'filter @message like /ERROR/',
+            'sort @timestamp desc',
+            'limit 50'
+          ],
+          width: 12
+        })],
+        [new cloudwatch.GraphWidget({
+          title: 'Custom Application Metrics',
+          left: [
+            new cloudwatch.Metric({
+              namespace: 'Valheim/Discord',
+              metricName: 'ServerRequested',
+              statistic: 'Sum'
+            }),
+            new cloudwatch.Metric({
+              namespace: 'Valheim/Discord', 
+              metricName: 'ServerStartSuccess',
+              statistic: 'Sum'
+            })
+          ],
+          right: [
+            new cloudwatch.Metric({
+              namespace: 'Valheim/Discord',
+              metricName: 'HandlerError',
+              statistic: 'Sum'
+            }),
+            new cloudwatch.Metric({
+              namespace: 'Valheim/Discord',
+              metricName: 'AuthenticationFailure', 
+              statistic: 'Sum'
+            })
+          ]
+        })]
+      ]
     });
 
     // Apply tags

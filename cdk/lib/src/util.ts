@@ -95,7 +95,7 @@ export class DiscordUtil {
         `${ipAddress ? `\`\`\`${ipAddress}\`\`\`` : ``}`
       ].join("\n");
 
-      const launchAction = ipAddress ? `[Launch Game](steam://run/892970//+connect ${ipAddress}:2456 +password hello123)` : ``
+      const launchAction = ipAddress ? `steam://run/892970//+connect ${ipAddress}:2456 +password hello123` : ``
       const actionList: { type: MessageComponentTypes, components: any[] } = {
         type: MessageComponentTypes.ACTION_ROW,
         components: [
@@ -169,6 +169,9 @@ export class DiscordUtil {
   }
 
   constructor(appToken: string) {
+    if(!appToken || `${appToken}`.length < 1){
+      throw Error("Cannot accept empty token");
+    }
     this.DISCORD_HEADERS = {
       'Content-Type': 'application/json; charset=UTF-8',
       'User-Agent': 'JDojo (https://github.com/discord/discord-example-app, 1.0.0)',

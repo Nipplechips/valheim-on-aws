@@ -33,15 +33,12 @@ export class ValheimStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ValheimStackProps) {
     super(scope, id, props);
 
-    // Retrieve Discord secrets from Parameter Store
-    const discordAppPublicKey = ssm.StringParameter.valueFromLookup(
-      this, '/valheim/discord/app-public-key'
-    );
+    // Discord parameter names (values will be retrieved at runtime)
+    const discordAppPublicKeyParam = '/valheim/discord/app-public-key';
+    const discordTokenKeyParam = '/valheim/discord/token'
+
     const discordAppId = ssm.StringParameter.valueFromLookup(
       this, '/valheim/discord/app-id'
-    );
-    const discordToken = ssm.StringParameter.valueFromLookup(
-      this, '/valheim/discord/token'
     );
 
     const username = 'vhserver';
@@ -98,7 +95,7 @@ export class ValheimStack extends cdk.Stack {
 
     const serverObservation = new GameServerObservationConstruct(this, "ValheimServerObservation", {
       autoScalingGroupName: gameServer.autoScalingGroup.autoScalingGroupName,
-      discordToken: `${discordToken}`
+      discordTokenKeyParam: `${discordTokenKeyParam}`
     });
 
     new GameServerControlConstruct(this, "ValheimServerControl", {
@@ -109,8 +106,7 @@ export class ValheimStack extends cdk.Stack {
       launchArgsParameter: gameServer.serverLaunchArgsParam,
       discordMessageIdParameter: serverObservation.discordMessageIdParam,
       discordAppId,
-      discordAppPublicKey,
-      discordToken
+      discordAppPublicKey: discordAppPublicKeyParam
     });
 
     // Apply tags

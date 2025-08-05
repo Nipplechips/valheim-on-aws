@@ -1,9 +1,8 @@
 import { GetParameterCommand, ParameterType, PutParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { DiscordUtil } from "../../util";
 import { Logger } from '@aws-lambda-powertools/logger';
-import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
-import { Logger } from '@aws-lambda-powertools/logger';
-import { Metrics, MetricUnits } from '@aws-lambda-powertools/metrics';
+import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
+
 
 export async function sendDiscordMessage({ discordClient, discordChannelId, serverState, discordMessageIdParamName, ssmClient, ipAddress, dnsName, logger, metrics }: { discordClient: DiscordUtil; discordChannelId: string; serverState: string; discordMessageIdParamName: string; ssmClient: SSMClient; ipAddress?: string; dnsName?: string; logger: Logger; metrics: Metrics; }) {
     logger.info('Sending Discord message', { serverState, ipAddress, dnsName });
@@ -22,7 +21,7 @@ export async function sendDiscordMessage({ discordClient, discordChannelId, serv
         case "shutting-down":
         case "terminated":
             logger.info('Sending server termination message');
-            metrics.addMetric('ServerTerminationMessage', MetricUnits.Count, 1);
+            metrics.addMetric('ServerTerminationMessage', MetricUnit.Count, 1);
             
             await discordClient.sendChannelMessage({
                 channelId: discordChannelId,
@@ -33,7 +32,7 @@ export async function sendDiscordMessage({ discordClient, discordChannelId, serv
         default:
             if (serverStatusMessageId) {
                 logger.info('Updating existing Discord message', { messageId: serverStatusMessageId });
-                metrics.addMetric('MessageUpdated', MetricUnits.Count, 1);
+                metrics.addMetric('MessageUpdated', MetricUnit.Count, 1);
                 
                 await discordClient.editChannelMessage({
                     channelId: discordChannelId,
@@ -42,7 +41,7 @@ export async function sendDiscordMessage({ discordClient, discordChannelId, serv
                 });
             } else {
                 logger.info('Creating new Discord message');
-                metrics.addMetric('MessageCreated', MetricUnits.Count, 1);
+                metrics.addMetric('MessageCreated', MetricUnit.Count, 1);
                 
                 serverStatusMessageId = await discordClient.sendChannelMessage({
                     channelId: discordChannelId,

@@ -1,7 +1,7 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
 import { Tracer } from '@aws-lambda-powertools/tracer';
-import { SSMClient } from "@aws-sdk/client-ssm";
+import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { DiscordUtil } from "../../util";
 import { sendDiscordMessage } from "./main";
 
@@ -9,7 +9,7 @@ const logger = new Logger({ serviceName: 'discord-messaging' });
 const metrics = new Metrics({ namespace: 'Valheim/Discord', serviceName: 'discord-messaging' });
 const tracer = new Tracer({ serviceName: 'discord-messaging' });
 
-const appToken = process.env.DISCORD_APP_TOKEN!;
+let appToken: string | undefined;
 const discordMessageIdParamName = process.env.DISCORD_MESSAGE_ID_PARAM!;
 
 const ssmClient = tracer.captureAWSv3Client(new SSMClient({}));
@@ -20,13 +20,22 @@ class DiscordMessagingHandler {
     @metrics.logMetrics()
     public async handler(event: any, context: unknown): Promise<any> {
         const { state, ipAddress, dnsName } = event.detail;
-        
+
         logger.info('Processing Discord message event', { state, ipAddress, dnsName });
         metrics.addMetric('MessageEventReceived', MetricUnit.Count, 1);
 
+        if (!appToken) {
+            logger.debug('Decoding public key');
+            const publicKeyResponse = await ssmClient.send(new GetParameterCommand({
+                Name: `${process.env.DISCORD_APP_TOKEN_PARAM}`,
+                WithDecryption: true
+            }));
+            appToken = publicKeyResponse.Parameter?.Value
+        }
+
         try {
             return await sendDiscordMessage({
-                discordClient: new DiscordUtil(appToken),
+                discordClient: new DiscordUtil(appToken!),
                 discordChannelId: "1397663670947020886",
                 discordMessageIdParamName,
                 serverState: state,

@@ -17,7 +17,6 @@ export interface GameServerControlConstructProps {
     }
     discordAppPublicKey?: string;
     discordAppId?: string;
-    discordToken?: string;
     launchArgsParameter: ssm.StringParameter;
     discordMessageIdParameter: ssm.StringParameter;
 }
@@ -52,6 +51,12 @@ export class GameServerControlConstruct extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ['ssm:PutParameter'],
             resources: [`${props.launchArgsParameter.parameterArn}`]
+        }));
+
+        lambdaRole.addToPolicy(new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ['ssm:GetParameter'],
+            resources: [`arn:aws:ssm:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:parameter/valheim/discord/app-public-key`]
         }));
 
         lambdaRole.addToPolicy(new iam.PolicyStatement({
@@ -99,7 +104,7 @@ export class GameServerControlConstruct extends Construct {
             logGroup: logGroupDiscordBotFunction,
             tracing: lambda.Tracing.ACTIVE,
             environment: {
-                DISCORD_APP_PUBLIC_KEY: `${props.discordAppPublicKey}`,
+                DISCORD_APP_PUBLIC_KEY_PARAM: `${props.discordAppPublicKey}`,
                 LAUNCH_ARGS_PARAM_NAME: `${props.launchArgsParameter.parameterName}`,
                 DISCORD_MESSAGE_ID_PARAM_NAME: `${props.discordMessageIdParameter.parameterName}`,
                 ASG_NAME: props.gameServerControl.name,

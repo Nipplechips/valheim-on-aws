@@ -4,7 +4,7 @@ import { Tracer } from '@aws-lambda-powertools/tracer';
 import { InteractionResponseType, InteractionType, verifyKey } from "discord-interactions";
 import { handleDiscordCommand, handleDiscordMessageInteraction } from "./main";
 import { AutoScalingClient } from "@aws-sdk/client-auto-scaling";
-import { SSMClient } from "@aws-sdk/client-ssm";
+import { GetParameterCommand, SSMClient } from "@aws-sdk/client-ssm";
 import { BotInteraction } from "../../util";
 import type { LambdaInterface } from '@aws-lambda-powertools/commons/types';
 
@@ -15,7 +15,7 @@ const tracer = new Tracer({ serviceName: 'discord-interactions' });
 const ssmClient = tracer.captureAWSv3Client(new SSMClient({}));
 const autoscalingClient = tracer.captureAWSv3Client(new AutoScalingClient({}));
 
-const publicKey = `${process.env.DISCORD_APP_PUBLIC_KEY!}`;
+let publicKey: string | undefined;
 const asgName = process.env.ASG_NAME!;
 const launchArgumentsParameterName: string = process.env.LAUNCH_ARGS_PARAM_NAME!;
 const discordMessageIdParameterName: string = process.env.DISCORD_MESSAGE_ID_PARAM_NAME!;
@@ -71,6 +71,16 @@ class DiscordBotHandler implements LambdaInterface {
             const timestamp = event.headers['x-signature-timestamp'];
             const body = event.body!;
 
+
+            if (!publicKey) {
+                logger.debug('Decoding public key');
+                const publicKeyResponse = await ssmClient.send(new GetParameterCommand({
+                    Name: `${process.env.DISCORD_APP_PUBLIC_KEY_PARAM}`,
+                    WithDecryption: true
+                }));
+                publicKey = publicKeyResponse.Parameter?.Value
+            }
+
             if (!signature) {
                 metrics.addMetric('ValidationError', MetricUnit.Count, 1);
                 throw new Error('Missing signature');
@@ -79,6 +89,8 @@ class DiscordBotHandler implements LambdaInterface {
                 metrics.addMetric('ValidationError', MetricUnit.Count, 1);
                 throw new Error('Missing timestamp');
             }
+
+
 
             const isValid = await verifyKey(body, signature, timestamp, publicKey);
             if (!isValid) {

@@ -13,7 +13,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm'
 import { LayerVersion, Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 
 export interface GameServerObservationConstructProps {
-    discordToken: string;
+    discordTokenKeyParam: string;
     autoScalingGroupName: string;
 }
 export class GameServerObservationConstruct extends Construct {
@@ -47,11 +47,11 @@ export class GameServerObservationConstruct extends Construct {
             },
             tracing: lambda.Tracing.ACTIVE,
             environment: {
-                DISCORD_APP_TOKEN: `${props.discordToken}`,
+                DISCORD_APP_TOKEN_PARAM: `${props.discordTokenKeyParam}`,
                 DISCORD_MESSAGE_ID_PARAM: this.discordMessageIdParam.parameterName,
                 POWERTOOLS_SERVICE_NAME: 'discord-messaging',
                 POWERTOOLS_METRICS_NAMESPACE: 'Valheim/Discord',
-                LOG_LEVEL: 'INFO'
+                LOG_LEVEL: 'DEBUG'
             }
         });
 
@@ -76,6 +76,12 @@ export class GameServerObservationConstruct extends Construct {
             ],
             resources: ['*']
         }));
+
+        this.discordMessengerLambda.addToRolePolicy(new iam.PolicyStatement({
+                    effect: iam.Effect.ALLOW,
+                    actions: ['ssm:GetParameter'],
+                    resources: [`arn:aws:ssm:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:parameter${props.discordTokenKeyParam}`]
+                }))
 
         // SNS Topic for notifications
         const topic = new sns.Topic(this, 'GameServerStatusTopic', {
